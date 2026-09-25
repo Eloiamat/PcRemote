@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <link rel="manifest" href="/static/manifest.json">
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#111827"
+    >
+
+    <title>PcRemote</title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+
+</head>
+
+
+<body>
+
+    <main class="container">
+
+
+        <!-- =========================
+             LOGIN
+        ========================== -->
+
+        <section
+            id="login-screen"
+            class="pc-card"
+            style="display: none;"
+        >
+
+            <div class="computer-icon">
+                🔐
+            </div>
+
+            <h2>PcRemote</h2>
+
+            <div class="status">
+                Acceso protegido
+            </div>
+
+
+            <input
+                id="pin-input"
+                type="password"
+                inputmode="numeric"
+                maxlength="6"
+                placeholder="PIN de 6 dígitos"
+                style="
+                    width: 80%;
+                    padding: 15px;
+                    margin-top: 20px;
+                    border-radius: 10px;
+                    border: none;
+                    font-size: 18px;
+                    text-align: center;
+                "
+            >
+
+
+            <button
+                id="login-button"
+                class="action-button lock"
+                style="margin-top: 15px;"
+            >
+
+                🔓
+
+                <span>
+                    Entrar
+                </span>
+
+            </button>
+
+
+            <p
+                id="login-error"
+                class="last-update"
+                style="color: #ef4444;"
+            ></p>
+
+        </section>
+
+
+
+        <!-- =========================
+             PANEL PRINCIPAL
+        ========================== -->
+
+        <div
+            id="control-panel"
+            style="display: none;"
+        >
+
+            <header>
+
+                <div>
+
+                    <h1>
+                        PcRemote
+                    </h1>
+
+                    <p>
+                        Control remoto de tu PC
+                    </p>
+
+                </div>
+
+
+                <div
+                    id="connection"
+                    class="connection"
+                >
+
+                    ● Conectando...
+
+                </div>
+
+            </header>
+
+
+
+            <!-- =========================
+                 ESTADO DEL PC
+            ========================== -->
+
+            <section class="pc-card">
+
+                <div class="computer-icon">
+                    💻
+                </div>
+
+                <h2>
+                    insebre
+                </h2>
+
+
+                <div
+                    id="status"
+                    class="status"
+                >
+
+                    Comprobando...
+
+                </div>
+
+
+                <p
+                    id="last-update"
+                    class="last-update"
+                >
+
+                    Actualizando estado...
+
+                </p>
+
+            </section>
+
+
+
+            <!-- =========================
+                 ACCIONES
+            ========================== -->
+
+            <section class="actions">
+
+                <button
+                    id="lock-button"
+                    class="action-button lock"
+                >
+
+                    🔒
+
+                    <span>
+                        Bloquear PC
+                    </span>
+
+                </button>
+
+            </section>
+
+        </div>
+
+
+    </main>
+
+
+
+    <script>
+
+        // =====================================================
+        // SERVICE WORKER
+        // =====================================================
+
+        if ("serviceWorker" in navigator) {
+
+            window.addEventListener("load", () => {
+
+                navigator.serviceWorker.register("/sw.js")
+
+                    .then(() => {
+
+                        console.log(
+                            "Service Worker activo"
+                        );
+
+                    })
+
+                    .catch(error => {
+
+                        console.error(
+                            "Error Service Worker:",
+                            error
+                        );
+
+                    });
+
+            });
+
+        }
+
+
+
+        // =====================================================
+        // ELEMENTOS
+        // =====================================================
+
+        const loginScreen =
+            document.getElementById(
+                "login-screen"
+            );
+
+
+        const controlPanel =
+            document.getElementById(
+                "control-panel"
+            );
+
+
+        const pinInput =
+            document.getElementById(
+                "pin-input"
+            );
+
+
+        const loginButton =
+            document.getElementById(
+                "login-button"
+            );
+
+
+        const loginError =
+            document.getElementById(
+                "login-error"
+            );
+
+
+        const connection =
+            document.getElementById(
+                "connection"
+            );
+
+
+        const status =
+            document.getElementById(
+                "status"
+            );
+
+
+        const lastUpdate =
+            document.getElementById(
+                "last-update"
+            );
+
+
+        const lockButton =
+            document.getElementById(
+                "lock-button"
+            );
+
+
+
+        // =====================================================
+        // COMPROBAR SI FLASK ESTÁ DISPONIBLE
+        // =====================================================
+
+        async function comprobarServidor() {
+
+            // Si Android ya sabe que no hay conexión, no intentamos
+            // hacer un fetch que pueda quedarse esperando.
+            if (!navigator.onLine) {
+                return false;
+            }
+
+            const controller =
+                new AbortController();
+
+
+            const timeout =
+                setTimeout(
+                    () => {
+
+                        controller.abort();
+
+                    },
+                    2000
+                );
+
+
+            try {
+
+                const respuesta =
+                    await fetch(
+                        "/api/ping",
+                        {
+                            method: "GET",
+                            cache: "no-store",
+                            signal:
+                                controller.signal
+                        }
+                    );
+
+
+                clearTimeout(timeout);
+
+
+                if (!respuesta.ok) {
+
+                    throw new Error(
+                        "Servidor no disponible"
+                    );
+
+                }
+
+
+                return true;
+
+            }
+
+            catch (error) {
+
+                clearTimeout(timeout);
+
+                return false;
+
+            }
+
+        }
+
+
+
+        // =====================================================
+        // MOSTRAR SERVIDOR OFFLINE
+        // =====================================================
+
+        function mostrarServidorOffline() {
+
+            loginScreen.style.display =
+                "none";
+
+
+            controlPanel.style.display =
+                "block";
+
+
+            connection.textContent =
+                "● PC OFFLINE";
+
+
+            connection.className =
+                "connection offline";
+
+
+            status.textContent =
+                "🔴 PC OFFLINE";
+
+
+            status.className =
+                "status offline";
+
+
+            lastUpdate.textContent =
+                "No se puede conectar con el ordenador";
+
+
+            lockButton.disabled =
+                true;
+
+        }
+
+
+
+        // =====================================================
+        // MOSTRAR LOGIN
+        // =====================================================
+
+        function mostrarLogin() {
+
+            loginScreen.style.display =
+                "block";
+
+
+            controlPanel.style.display =
+                "none";
+
+
+            loginError.textContent =
+                "";
+
+
+            lockButton.disabled =
+                false;
+
+        }
+
+
+
+        // =====================================================
+        // LOGIN
+        // =====================================================
+
+        loginButton.addEventListener(
+            "click",
+            iniciarSesion
+        );
+
+
+        pinInput.addEventListener(
+            "keydown",
+            (event) => {
+
+                if (event.key === "Enter") {
+
+                    iniciarSesion();
+
+                }
+
+            }
+        );
+
+
+
+        async function iniciarSesion() {
+
+            const pin =
+                pinInput.value.trim();
+
+
+            if (pin.length !== 6) {
+
+                loginError.textContent =
+                    "Introduce un PIN de 6 dígitos.";
+
+                return;
+
+            }
+
+
+            loginButton.disabled =
+                true;
+
+
+            loginError.textContent =
+                "Comprobando...";
+
+
+            try {
+
+                const respuesta =
+                    await fetch(
+                        "/login",
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body:
+                                JSON.stringify({
+                                    pin: pin
+                                })
+                        }
+                    );
+
+
+                const datos =
+                    await respuesta.json();
+
+
+                if (
+                    !respuesta.ok ||
+                    !datos.success
+                ) {
+
+                    loginError.textContent =
+                        datos.error ||
+                        "PIN incorrecto.";
+
+                    pinInput.value = "";
+
+                    pinInput.focus();
+
+                    loginButton.disabled =
+                        false;
+
+                    return;
+
+                }
+
+
+                // =============================================
+                // LOGIN CORRECTO
+                // =============================================
+
+                loginScreen.style.display =
+                    "none";
+
+
+                controlPanel.style.display =
+                    "block";
+
+
+                lockButton.disabled =
+                    false;
+
+
+                actualizarEstado();
+
+            }
+
+
+            catch (error) {
+
+                loginError.textContent =
+                    "No se puede conectar con el PC.";
+
+                loginButton.disabled =
+                    false;
+
+            }
+
+        }
+
+
+
+        // =====================================================
+        // ESTADO DEL PC
+        // =====================================================
+
+        async function actualizarEstado() {
+
+            const controller =
+                new AbortController();
+
+
+            const timeout =
+                setTimeout(
+                    () => {
+
+                        controller.abort();
+
+                    },
+                    3000
+                );
+
+
+            try {
+
+                const respuesta =
+                    await fetch(
+                        "/api/status",
+                        {
+                            signal:
+                                controller.signal,
+
+                            cache:
+                                "no-store"
+                        }
+                    );
+
+
+                clearTimeout(timeout);
+
+
+                if (!respuesta.ok) {
+
+                    throw new Error(
+                        "Error del servidor"
+                    );
+
+                }
+
+
+                const datos =
+                    await respuesta.json();
+
+
+                // =============================================
+                // SERVIDOR RESPONDE
+                // =============================================
+
+                connection.textContent =
+                    "● Conectado";
+
+
+                connection.className =
+                    "connection online";
+
+
+                lockButton.disabled =
+                    false;
+
+
+                // =============================================
+                // PC OFFLINE
+                // =============================================
+
+                if (!datos.online) {
+
+                    status.textContent =
+                        "🔴 PC OFFLINE";
+
+
+                    status.className =
+                        "status offline";
+
+
+                    lastUpdate.textContent =
+                        "El ordenador no está disponible";
+
+
+                    lockButton.disabled =
+                        true;
+
+
+                    return;
+
+                }
+
+
+                // =============================================
+                // PC ONLINE
+                // =============================================
+
+                if (datos.locked) {
+
+                    status.textContent =
+                        "🔒 PC BLOQUEADO";
+
+
+                    status.className =
+                        "status locked";
+
+                }
+
+                else {
+
+                    status.textContent =
+                        "🟢 PC DESBLOQUEADO";
+
+
+                    status.className =
+                        "status unlocked";
+
+                }
+
+
+                const ahora =
+                    new Date();
+
+
+                lastUpdate.textContent =
+                    "Actualizado: " +
+                    ahora.toLocaleTimeString();
+
+            }
+
+
+            catch (error) {
+
+                clearTimeout(timeout);
+
+
+                // =============================================
+                // SERVIDOR INACCESIBLE
+                // =============================================
+
+                connection.textContent =
+                    "● PC OFFLINE";
+
+
+                connection.className =
+                    "connection offline";
+
+
+                status.textContent =
+                    "🔴 PC OFFLINE";
+
+
+                status.className =
+                    "status offline";
+
+
+                lastUpdate.textContent =
+                    "No se puede conectar con el ordenador";
+
+
+                lockButton.disabled =
+                    true;
+
+            }
+
+        }
+
+
+
+        // =====================================================
+        // ACTUALIZACIÓN AUTOMÁTICA
+        // =====================================================
+
+        setInterval(
+            () => {
+
+                if (
+                    controlPanel.style.display !==
+                    "none"
+                ) {
+
+                    actualizarEstado();
+
+                }
+
+            },
+            5000
+        );
+
+
+
+        // =====================================================
+        // BLOQUEAR PC
+        // =====================================================
+
+        lockButton.addEventListener(
+            "click",
+            async () => {
+
+                try {
+
+                    const respuesta =
+                        await fetch(
+                            "/bloquear",
+                            {
+                                method: "POST"
+                            }
+                        );
+
+
+                    // =========================================
+                    // SESIÓN EXPIRADA
+                    // =========================================
+
+                    if (
+                        respuesta.status ===
+                        401
+                    ) {
+
+                        mostrarLogin();
+
+                        return;
+
+                    }
+
+
+                    // =========================================
+                    // ERROR
+                    // =========================================
+
+                    if (!respuesta.ok) {
+
+                        alert(
+                            "No se ha podido bloquear el PC."
+                        );
+
+                        return;
+
+                    }
+
+
+                    // =========================================
+                    // ACTUALIZAR ESTADO
+                    // =========================================
+
+                    actualizarEstado();
+
+                }
+
+
+                catch (error) {
+
+                    alert(
+                        "No se ha podido conectar con el PC."
+                    );
+
+                }
+
+            }
+        );
+
+
+
+        // =====================================================
+        // COMPROBACIÓN INICIAL
+        // =====================================================
+
+        window.addEventListener(
+            "load",
+            async () => {
+
+                // No mostramos el PIN mientras no sepamos si el servidor
+                // está disponible. Así nunca aparece el login de forma
+                // momentánea cuando el PC está offline.
+                loginScreen.style.display = "none";
+                controlPanel.style.display = "none";
+
+                // Sin conexión conocida: OFFLINE inmediatamente.
+                if (!navigator.onLine) {
+                    mostrarServidorOffline();
+                    return;
+                }
+
+                // Con conexión: comprobar que ESTE servidor responde.
+                // Solo después mostramos el PIN.
+                const servidorDisponible =
+                    await comprobarServidor();
+
+                if (servidorDisponible) {
+                    mostrarLogin();
+                } else {
+                    mostrarServidorOffline();
+                }
+
+            }
+        );
+
+
+        // Si la conexión vuelve mientras la app está abierta,
+        // comprobamos el servidor de nuevo inmediatamente.
+        window.addEventListener("online", async () => {
+            const servidorDisponible = await comprobarServidor();
+
+            if (servidorDisponible) {
+                mostrarLogin();
+            } else {
+                mostrarServidorOffline();
+            }
+        });
+
+
+        window.addEventListener("offline", () => {
+            mostrarServidorOffline();
+        });
+
+    </script>
+
+</body>
+
+</html>
+
