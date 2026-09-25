@@ -1,0 +1,121 @@
+
+============================================================
+                    PCREMOTE - INSTALACIÓN
+============================================================
+
+DESCRIPCIÓN
+------------------------------------------------------------
+Aplicación web para controlar y consultar el estado del PC.
+
+
+============================================================
+1. INSTALACIÓN
+============================================================
+
+[OPCIÓN A] - DESCARGAR EL ZIP DESDE GITHUB
+------------------------------------------------------------
+1.  Entra en el repositorio de PcRemote en GitHub.
+2.  Pulsa en “Code”.
+3.  Pulsa en “Download ZIP”.
+4.  Extrae el ZIP.
+5.  Abre una terminal dentro de la carpeta PcRemote.
+
+Ejecuta:
+
+    chmod +x install.sh
+
+Después:
+
+    ./install.sh
+
+A partir de aquí, el instalador realiza automáticamente la instalación y
+configuración de PcRemote.
+
+-----------------------------------------------------------------------------
+
+[OPCIÓN B] - CLONAR EL REPOSITORIO CON GIT
+------------------------------------------------------------
+Si tienes Git instalado, ejecuta:
+
+    git clone https://github.com/TU-USUARIO/PcRemote.git
+
+Entra en la carpeta:
+
+    cd PcRemote
+
+Da permisos al instalador:
+
+    chmod +x install.sh
+
+Ejecuta el instalador:
+
+    ./install.sh
+
+A partir de aquí, el instalador realiza automáticamente la instalación y
+configuración de PcRemote.
+
+
+============================================================
+2. COMANDOS ÚTILES
+============================================================
+
+VER ESTADO DEL SERVIDOR
+------------------------------------------------------------
+
+    sudo systemctl status controlpc.service
+
+
+REINICIAR SERVIDOR
+------------------------------------------------------------
+
+    sudo systemctl restart controlpc.service
+
+
+PARAR SERVIDOR
+------------------------------------------------------------
+
+    sudo systemctl stop controlpc.service
+
+
+INICIAR SERVIDOR
+------------------------------------------------------------
+
+    sudo systemctl start controlpc.service
+
+
+VER LOGS
+------------------------------------------------------------
+
+    
+    sudo journalctl -u controlpc.service -f
+
+
+============================================================
+3. TAILSCALE
+============================================================
+
+VER ESTADO:
+
+    sudo tailscale status
+
+VER FUNNEL:
+
+    sudo tailscale funnel status
+
+
+============================================================
+4. SOLUCIÓN DE PROBLEMAS
+============================================================
+
+Si el servidor no responde:
+
+    sudo systemctl restart controlpc.service
+
+Si el puerto 5000 está ocupado:
+
+    sudo lsof -i :5000
+
+
+============================================================
+                    FIN DEL DOCUMENTO
+============================================================
